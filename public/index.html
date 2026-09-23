@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FayTik</title>
+<style>
+:root{--bg:#0b0f19;--card:#131826;--accent:#00f2ea;--accent2:#ff0050;--text:#f2f4f8;--muted:#8b93a7;--border:#232a3d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:linear-gradient(160deg,#0b0f19,#101627);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;display:flex;justify-content:center;padding:32px 16px}
+.wrap{width:100%;max-width:480px}
+.logo{text-align:center;font-size:28px;font-weight:800;margin-bottom:4px}
+.logo span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{text-align:center;color:var(--muted);font-size:14px;margin-bottom:28px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px}
+.row{display:flex;gap:8px}
+input{flex:1;background:#0e1420;border:1px solid var(--border);border-radius:12px;padding:14px;color:var(--text);font-size:15px;outline:none}
+input:focus{border-color:var(--accent)}
+button{background:linear-gradient(90deg,var(--accent),#00c2ff);border:none;border-radius:12px;padding:0 20px;font-weight:700;color:#031013;cursor:pointer;font-size:15px}
+button:disabled{opacity:.6}
+.msg{margin-top:14px;font-size:14px;color:var(--muted);text-align:center}
+.msg.err{color:#ff6b81}
+.result{margin-top:20px;display:none}
+.result video{width:100%;border-radius:14px;background:#000;max-height:520px}
+.meta{margin-top:12px;font-size:13px;color:var(--muted);line-height:1.5}
+.meta b{color:var(--text)}
+.dl{display:block;width:100%;text-align:center;margin-top:14px;padding:14px;border-radius:12px;text-decoration:none;font-weight:700}
+.dl.no-wm{background:var(--accent);color:#031013}
+.dl.wm{background:#1c2333;color:var(--text);border:1px solid var(--border);margin-top:10px}
+.hint{text-align:center;color:var(--muted);font-size:12px;margin-top:24px;line-height:1.6}
+.watermark{position:fixed;bottom:14px;right:14px;background:var(--card);border:1px solid var(--border);color:var(--muted);font-size:12px;padding:6px 12px;border-radius:999px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.watermark b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">Fay<span>Tik</span></div>
+  <div class="sub">Download video TikTok tanpa watermark</div>
+  <div class="card">
+    <div class="row">
+      <input id="url" type="text" placeholder="Tempel link video TikTok...">
+      <button id="go">Ambil</button>
+    </div>
+    <div id="msg" class="msg"></div>
+    <div id="result" class="result">
+      <video id="vid" controls playsinline controlsList="nodownload noremoteplayback" disablePictureInPicture oncontextmenu="return false"></video>
+      <div class="meta" id="meta"></div>
+      <button id="dlNoWm" class="dl no-wm">Download (Tanpa Watermark)</button>
+      <button id="dlWm" class="dl wm">Download (Dengan Watermark)</button>
+      <button id="dlAudio" class="dl wm">Download Audio (MP3)</button>
+    </div>
+  </div>
+  <div class="hint">Tempel link video publik dari aplikasi/situs TikTok.</div>
+</div>
+<div class="watermark">Made by <b>Fay</b></div>
+<script>
+const $=id=>document.getElementById(id);
+$('go').onclick=fetchVideo;
+$('url').addEventListener('keydown',e=>{if(e.key==='Enter')fetchVideo()});
+$('dlNoWm').onclick=()=>doDownload($('dlNoWm').dataset.src,'video-no-watermark.mp4');
+$('dlWm').onclick=()=>doDownload($('dlWm').dataset.src,'video-watermark.mp4');
+$('dlAudio').onclick=()=>doDownload($('dlAudio').dataset.src,'audio.mp3');
+
+function doDownload(src,filename){
+  if(!src) return;
+  const dl='/api/download?src='+encodeURIComponent(src)+'&filename='+encodeURIComponent(filename);
+  window.location.href=dl;
+}
+
+async function fetchVideo(){
+  const link=$('url').value.trim();
+  const msg=$('msg'), result=$('result'), btn=$('go');
+  msg.className='msg'; msg.textContent='';
+  result.style.display='none';
+  if(!link){msg.textContent='Masukkan link video dulu.';return}
+  btn.disabled=true; btn.textContent='Memproses...';
+  msg.textContent='Mengambil data video...';
+  try{
+    const res=await fetch('/api/video?url='+encodeURIComponent(link));
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||'Video tidak ditemukan. Pastikan link valid dan video bersifat publik.');
+    $('vid').src=data.noWatermark;
+    $('meta').innerHTML='<b>'+escapeHtml(data.title||'(tanpa judul)')+'</b><br>Oleh: '+escapeHtml(data.author||'-');
+    $('dlNoWm').dataset.src=data.noWatermark;
+    $('dlWm').dataset.src=data.watermark||data.noWatermark;
+    $('dlAudio').dataset.src=data.audio||'';
+    result.style.display='block';
+    msg.textContent='Berhasil. Tekan tombol download di bawah.';
+  }catch(e){
+    msg.className='msg err';
+    msg.textContent=e.message||'Terjadi kesalahan. Coba lagi.';
+  }finally{
+    btn.disabled=false; btn.textContent='Ambil';
+  }
+}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+</script>
+</body>
+  </html>
